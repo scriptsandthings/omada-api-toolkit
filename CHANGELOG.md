@@ -6,6 +6,13 @@ All notable changes to the Omada API Toolkit.
 
 ### Added
 
+**4 new example scripts (2 → 6)**
+
+- `examples/network-audit.js` — full network overview (VLANs, devices, clients, SSIDs, dashboard stats)
+- `examples/switch-config.js` — switch management (rename, ports, LAGs, profiles, network overview)
+- `examples/security-audit.js` — security posture check (attack defense, WIDS/WIPS, rogue APs, SNMP, alerts)
+- `examples/explore-endpoints.js` — discover which of 33 endpoint categories your controller supports
+
 **API-REFERENCE.md — 200+ endpoints documented (up from ~40)**
 
 New endpoint sections:
