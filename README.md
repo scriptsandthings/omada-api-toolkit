@@ -74,9 +74,9 @@ console.log(networks.result.data);
 
 | File | Description |
 |------|-------------|
-| [`omada-api-helper.js`](omada-api-helper.js) | Zero-dependency Node.js API client with auth flow, cookie jar, and helper methods |
-| [`API-REFERENCE.md`](API-REFERENCE.md) | Complete endpoint documentation with exact payloads for ACLs, VLANs, SSIDs, mDNS, switch ports, port profiles, AP radio/channel config |
-| [`PITFALLS.md`](PITFALLS.md) | 20 common mistakes and undocumented behavior that will save you hours |
+| [`omada-api-helper.js`](omada-api-helper.js) | Zero-dependency Node.js API client with auth flow, cookie jar, and 35+ helper methods |
+| [`API-REFERENCE.md`](API-REFERENCE.md) | Comprehensive endpoint documentation covering 200+ endpoints across 30+ categories — VLANs, ACLs, SSIDs, switches, APs, VPN, QoS, security, dashboard, and more |
+| [`PITFALLS.md`](PITFALLS.md) | 31 common mistakes and undocumented behavior that will save you hours |
 | [`examples/`](examples/) | Ready-to-use scripts for common tasks |
 
 ## Common Operations
@@ -208,15 +208,20 @@ mdns.result.data.forEach(rule => {
 });
 ```
 
-## Top 5 Pitfalls
+## Top Pitfalls
 
 1. **`protocols: []` is unreliable** — Always set explicit protocols like `[6, 17, 1]` for TCP+UDP+ICMP
 2. **PATCH needs the full payload** — GET first, modify, then PATCH with everything
 3. **`security: 2` (WPA2-only) fails on SSID creation** — Use `security: 3` (WPA2/WPA3) instead
 4. **Trunk profiles without native VLAN can't be assigned to ports** — Always include `nativeNetworkId`
 5. **SSID overrides need `PUT /eaps/{mac}/config/wlans`** — `PATCH /eaps/{mac}` silently ignores `ssidOverrides`
+6. **Switch rename needs `/switches/{mac}`** — `/devices/{mac}` returns -1600 for PATCH
+7. **WIDS/WIPS/URL filtering return -1001 on OC220** — hardware doesn't support these features
+8. **Clients endpoint needs `filters.active=true`** — without it, returns error -1
+9. **`purpose: 'Interface'` is limited on ER7206** — use `purpose: 'vlan'` for L2-only VLAN tags
+10. **Response format varies** — `result.data` (paginated), `result` (array), or `result` (object)
 
-See [PITFALLS.md](PITFALLS.md) for all 20 pitfalls with explanations.
+See [PITFALLS.md](PITFALLS.md) for all 31 pitfalls with explanations.
 
 ## Discovering New Endpoints
 
