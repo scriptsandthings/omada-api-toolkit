@@ -11,6 +11,10 @@ Every request must include:
 - **Cookie:** `TPOMADA_SESSIONID={value}`
 - **URL param:** `?token={token}` (append with `&token=` if other params exist)
 
+### Related Docs
+- **[PITFALLS.md](PITFALLS.md)** — 31 hard-won pitfalls for this API
+- **[CHANGELOG.md](CHANGELOG.md)** — version history and what's new
+
 ---
 
 ## Authentication
@@ -498,6 +502,38 @@ DELETE /setting/wlans/{wlanGroupId}/ssids/{ssidId}
 
 ---
 
+## Networks (continued)
+
+### Delete Network
+
+```
+DELETE /setting/lan/networks/{networkId}
+```
+
+### Batch Delete Networks
+
+```
+POST /setting/lan/networks/batch-delete
+```
+
+### Network Summary
+
+```
+GET /setting/lan/networkSummary
+```
+
+Returns a summary view of all networks without full detail.
+
+### Network Check
+
+```
+POST /setting/lan/networks/check
+```
+
+Validates a network configuration before creating it.
+
+---
+
 ## Devices
 
 ### List Devices
@@ -512,11 +548,14 @@ GET /devices?currentPage=1&currentPageSize=100
   "mac": "AA-BB-CC-DD-EE-FF",
   "name": "SG3428XMPP",
   "type": "switch",
-  "status": 0,
+  "status": 14,
+  "statusCategory": 1,
   "model": "SG3428XMPP",
   "firmwareVersion": "1.0.0"
 }
 ```
+
+**Status values:** `statusCategory: 1` or `status: 14` = online. `status: 20` = discovered (ready for adoption).
 
 ### Adopt Device
 
@@ -532,6 +571,155 @@ POST /cmd/devices/adopt
 ```
 
 **Important:** The MAC is in the **body**, not the URL. Adoption often fails on first attempt (device not yet discovered). Wait 10–30 seconds and retry — usually succeeds after the device reaches "Discovered" state (status 20).
+
+### Reboot Device
+
+```
+POST /cmd/devices/{deviceId}/reboot
+```
+
+### Upgrade Device Firmware
+
+```
+POST /cmd/devices/upgrade
+```
+
+### Check for Firmware Updates
+
+```
+GET /cmd/devices/onlineCheckUpgrade
+```
+
+---
+
+## Clients
+
+### List Active Clients
+
+```
+GET /clients?filters.active=true&currentPage=1&currentPageSize=100
+```
+
+**Important:** The `filters.active=true` parameter is **required** on OC220. Without it, the endpoint returns errorCode -1.
+
+### Block Client
+
+```
+POST /cmd/clients/{clientId}/block
+```
+
+### Unblock Client
+
+```
+POST /cmd/clients/{clientId}/unblock
+```
+
+### Delete Client
+
+```
+POST /cmd/clients/delete
+```
+
+### Client History
+
+```
+GET /clientHistory
+```
+
+---
+
+## Switches
+
+### Rename Switch
+
+```
+PATCH /switches/{mac}
+```
+
+**Request body:**
+```json
+{
+  "name": "Core-SG3428"
+}
+```
+
+**Important:** Use `/switches/{mac}` NOT `/devices/{mac}`. The generic devices endpoint returns -1600 for PATCH operations. See Pitfall #21.
+
+### Get Switch Config
+
+```
+GET /cmd/switches/
+```
+
+### Update Switch General Config
+
+```
+PUT /cmd/switches/config/general
+```
+
+### Get Switch Services Config
+
+```
+GET /cmd/switches/config/services
+```
+
+### Get Switch Port Config
+
+```
+GET /cmd/switches/ports/config
+```
+
+### Switch LAGs
+
+```
+GET /switches/{switchMac}/lags
+```
+
+### Switch Network Overview
+
+```
+GET /switches/{switchMac}/networkOverview
+```
+
+---
+
+## Gateway
+
+### Get Gateway Config
+
+```
+GET /gateways
+```
+
+or
+
+```
+GET /gateways/
+```
+
+### Update Gateway
+
+```
+PATCH /gateways
+```
+
+### Gateway General Settings
+
+```
+GET /gateways/{deviceId}/setting/general
+```
+
+### Gateway Network Settings
+
+```
+GET /gateways/{deviceId}/setting/network
+```
+
+### Gateway Services Settings
+
+```
+GET /gateways/{deviceId}/setting/services
+```
 
 ---
 
@@ -783,14 +971,7 @@ GET /setting/routing/staticRoutes?currentPage=1&currentPageSize=100
 
 ---
 
-## Other Services
-
-### IGMP Proxy
-
-```
-GET  /setting/service/igmpProxy
-PATCH /setting/service/igmpProxy
-```
+## Other ACL Types
 
 ### Switch ACLs
 
@@ -808,14 +989,692 @@ POST /setting/firewall/acls?type=eap
 
 ---
 
+## Security & Attack Defense
+
+### Attack Defense
+
+```
+GET /setting/firewall/attackdefense
+```
+
+Returns the current attack defense configuration with ~29 features (DoS protection, flood protection, etc.).
+
+```
+GET /setting/firewall/attackdefense/default
+```
+
+Returns factory default attack defense settings.
+
+**Note:** OC220 has 22/29 features enabled by default.
+
+### Wireless IDS
+
+```
+GET /setting/firewall/wids
+```
+
+Wireless intrusion detection settings. **Returns -1001 on OC220 hardware** (unsupported).
+
+### Wireless IPS
+
+```
+GET /setting/firewall/wips
+```
+
+Wireless intrusion prevention settings. **Returns -1001 on OC220 hardware** (unsupported).
+
+### URL Filtering
+
+```
+GET /setting/firewall/urlfilterings
+DELETE /setting/firewall/urlfilterings/{id}
+PUT /setting/firewall/urlfilterings/{id}
+POST /cmd/urlfilterings/modifyIndex
+```
+
+**Returns -1001 on OC220 hardware** (unsupported).
+
+### IP-MAC Binding
+
+```
+GET /setting/firewall/imbs
+POST /setting/firewall/imbs/
+PUT /setting/firewall/imbs/{id}
+DELETE /setting/firewall/imbs/{id}
+POST /setting/firewall/imbs/batch-delete
+```
+
+Prevents IP spoofing by binding specific MACs to IPs. Useful for critical infrastructure devices.
+
+### Firewall Timeouts
+
+```
+GET /setting/firewall/timeout
+GET /setting/firewall/timeout/default
+```
+
+---
+
+## Rogue AP Detection
+
+### Scan for Rogue APs
+
+```
+POST /cmd/rogueaps/scan
+```
+
+Triggers a rogue AP scan across all managed APs. Returns immediately; results are retrieved via the insight endpoint.
+
+### Get Rogue AP Results
+
+```
+GET /insight/rogueaps
+```
+
+Returns list of detected rogue APs from the most recent scan.
+
+### Delete Rogue AP Entry
+
+```
+POST /cmd/rogueaps/delete
+```
+
+---
+
+## Network Services
+
+### SNMP
+
+```
+GET /setting/snmp
+PUT /setting/snmp
+```
+
+Enable/disable SNMP agent and configure communities.
+
+### SSH
+
+```
+PUT /setting/ssh
+PATCH /setting/ssh
+```
+
+### NTP
+
+```
+GET /setting/ntp
+```
+
+### DDNS
+
+```
+GET /setting/service/ddns
+PUT /setting/service/ddns/{id}
+DELETE /setting/service/ddns/{id}
+```
+
+### UPnP
+
+```
+GET /setting/upnp
+PUT /setting/upnp
+```
+
+### IGMP Proxy
+
+```
+GET  /setting/service/igmpProxy
+PATCH /setting/service/igmpProxy
+```
+
+### IPTV
+
+```
+GET /setting/iptv
+PUT /setting/iptv
+```
+
+### PoE Schedules
+
+```
+GET /setting/service/poeSchedules
+PUT /setting/service/poeSchedules/{id}
+DELETE /setting/service/poeSchedules/{id}
+```
+
+### Reboot Schedules
+
+```
+PATCH /setting/service/rebootSchedules
+PUT /setting/service/rebootSchedules/{id}
+DELETE /setting/service/rebootSchedules/{id}
+```
+
+### Scheduled Upgrade
+
+```
+GET /setting/service/scheduleUpgrade
+PUT /setting/service/scheduleUpgrade
+```
+
+### DHCP
+
+```
+GET /setting/service/dhcp/{id}
+PUT /setting/service/dhcp/{id}
+DELETE /setting/service/dhcp/{id}
+GET /setting/service/dhcp/export
+```
+
+---
+
+## Transmission / Traffic Control
+
+### Bandwidth Controls
+
+```
+GET /setting/transmission/bandwidthControls
+GET /setting/transmission/bandwidthControls/{id}
+PUT /setting/transmission/bandwidthControls/{id}
+```
+
+### Port Forwarding
+
+```
+GET /setting/transmission/portForwardings
+GET /setting/transmission/portForwardings/{id}
+PUT /setting/transmission/portForwardings/{id}
+```
+
+### Static Routes (via Transmission)
+
+```
+GET /setting/transmission/staticRoutings
+PUT /setting/transmission/staticRoutings/{id}
+DELETE /setting/transmission/staticRoutings/{id}
+```
+
+### Policy Routing
+
+```
+GET /setting/transmission/policyRoutings
+GET /setting/transmission/policyRoutings/{id}
+PUT /setting/transmission/policyRoutings/{id}
+```
+
+### Session Limits
+
+```
+GET /setting/transmission/sessionLimits
+GET /setting/transmission/sessionLimits/{id}
+PUT /setting/transmission/sessionLimits/{id}
+```
+
+### One-to-One NAT
+
+```
+GET /setting/transmission/otonats
+GET /setting/transmission/otonats/{id}
+PUT /setting/transmission/otonats/{id}
+```
+
+### ALG (Application Layer Gateway)
+
+```
+GET /setting/transmission/alg
+PUT /setting/transmission/alg
+```
+
+---
+
+## VPN
+
+### IPsec / VPN Tunnels
+
+```
+GET /setting/vpns
+GET /setting/vpns/{id}
+GET /setting/vpns/{id}/status
+```
+
+### GRE Tunnel
+
+```
+GET /setting/vpns/greTunnel
+PUT /setting/vpns/greTunnel
+```
+
+### IPsec Failovers
+
+```
+GET /setting/vpns/ipsec-failovers
+DELETE /setting/vpns/ipsec-failovers/{id}
+GET /setting/vpns/ipsec-failovers/candidates
+```
+
+### PPTP / L2TP
+
+```
+GET /setting/vpns/pptpAndL2tp
+```
+
+### VPN Users
+
+```
+GET /setting/vpns/users
+DELETE /setting/vpns/users/{id}
+GET /setting/vpns/userServers
+```
+
+### VPN Tunnel Stats
+
+```
+POST /cmd/vpn/stats/tunnel/terminate
+```
+
+### WireGuard Dashboard
+
+```
+GET /dashboard/wireguard
+```
+
+---
+
+## SSL VPN (16 endpoints)
+
+```
+GET /setting/sslvpn/server
+PATCH /setting/sslvpn/server
+GET /setting/sslvpn/resourcegroups
+DELETE /setting/sslvpn/resourcegroups/{id}
+GET /setting/sslvpn/resources
+DELETE /setting/sslvpn/resources/{id}
+GET /setting/sslvpn/usergroups
+GET /setting/sslvpn/usergroups/{id}
+DELETE /setting/sslvpn/usergroups/{id}
+GET /setting/sslvpn/usergroups/{id}/users
+POST /setting/sslvpn/users
+DELETE /setting/sslvpn/users/{id}
+GET /setting/sslvpn/lockedtunnels
+DELETE /setting/sslvpn/lockedtunnels/{id}
+GET /setting/sslvpn/radius
+GET /setting/sslvpn/briefresourcegroups
+GET /setting/sslvpn/briefresources
+GET /setting/sslvpn/briefusergroups
+```
+
+---
+
+## QoS
+
+```
+GET /setting/qos/switch/dot1p-queue-mappings/all
+GET /setting/qos/switch/dscp-dot1p-mappings/all
+GET /setting/qos/switch/queue-scheduler-mappings/all
+```
+
+---
+
+## Authentication / 802.1X
+
+### 802.1X Settings
+
+```
+GET /setting/dot1x
+GET /setting/eap/dot1x
+```
+
+### RADIUS Profiles
+
+```
+GET /setting/radiusProfiles
+POST /setting/radiusProfiles
+PATCH /setting/radiusProfiles/{id}
+DELETE /setting/radiusProfiles/{id}
+```
+
+### MAC Auth
+
+```
+GET /setting/macAuth
+GET /setting/macAuthSsids
+```
+
+### LDAP
+
+```
+GET /setting/ldap-brief
+```
+
+---
+
+## Portals / Guest Access
+
+```
+GET /setting/portals
+PATCH /setting/portals
+PATCH /setting/portals/{id}
+DELETE /setting/portals/{id}
+GET /setting/portal/candidates
+```
+
+---
+
+## Profiles & Rate Limits
+
+### Rate Limits
+
+```
+GET /setting/profiles/rateLimits
+DELETE /setting/profiles/rateLimits/{id}
+```
+
+### Profile Groups
+
+```
+GET /setting/profiles/groups
+POST /setting/profiles/groups
+PATCH /setting/profiles/groups/{id}
+DELETE /setting/profiles/groups/{id}
+```
+
+### Time Ranges
+
+```
+GET /setting/profiles/timeranges
+POST /setting/profiles/timeranges
+PATCH /setting/profiles/timeranges/{id}
+DELETE /setting/profiles/timeranges/{id}
+```
+
+### PPSK (Private Pre-Shared Key)
+
+```
+GET /setting/profiles/ppsk
+GET /setting/profiles/ppsk/{id}
+DELETE /setting/profiles/ppsk/{id}
+GET /setting/profiles/ppsk/generate
+```
+
+---
+
+## WAN
+
+### WAN Networks
+
+```
+GET /wan/networks
+POST /wan/networks/
+GET /wan/networks/load-balance
+GET /setting/wan/networks
+PATCH /setting/wan/networks
+```
+
+### WAN Bandwidth
+
+```
+POST /wan/bandwidth
+```
+
+### WAN Ports
+
+```
+GET /setting/wan-ports
+```
+
+### WAN/LAN Status
+
+```
+GET /setting/wanlanstatus
+POST /setting/wanlanstatus
+```
+
+### Virtual WANs
+
+```
+GET /setting/virtual-wans
+PATCH /setting/virtual-wans/{id}
+GET /setting/virtual-wans/delete-check
+DELETE /setting/virtual-wans/{virtualWanId}
+GET /setting/available-virtual-wans
+```
+
+---
+
+## Dashboard (43 endpoints)
+
+All dashboard endpoints are **GET** requests.
+
+### Overview
+
+```
+GET /dashboard/stats
+GET /dashboard/snapshot
+GET /dashboard/overviewDiagram
+GET /dashboard/networks
+```
+
+### Clients
+
+```
+GET /dashboard/activeClients
+GET /dashboard/clientActivity
+GET /dashboard/clientsDistribution
+GET /dashboard/clientsFreqDistribution
+GET /dashboard/clientsRssiDistribution
+GET /dashboard/clientsSsidDistribution
+GET /dashboard/clientsAssociationActivities
+GET /dashboard/clientsAssociationTimeDistribution
+GET /dashboard/pastClientNum
+```
+
+### Wireless
+
+```
+GET /dashboard/wifiSummary
+GET /dashboard/activeSsids
+GET /dashboard/activeAps
+GET /dashboard/channels
+GET /dashboard/associationFailures
+GET /dashboard/retryDroppedRate
+GET /dashboard/topInterference
+```
+
+### Switching
+
+```
+GET /dashboard/switchSummary
+GET /dashboard/switchingSummary
+GET /dashboard/activeSwitches
+GET /dashboard/portstatedetails
+GET /dashboard/poeUtilization
+GET /dashboard/longestUptime
+GET /dashboard/topDeviceCpuUsage
+GET /dashboard/topDeviceMemoryUsage
+```
+
+### Traffic
+
+```
+GET /dashboard/trafficActivities
+GET /dashboard/trafficDistribution
+GET /dashboard/activeApplications
+GET /dashboard/activeCategories
+```
+
+### VPN
+
+```
+GET /dashboard/ipsectunnels
+GET /dashboard/openvpntunnels
+GET /dashboard/sslvpntunnels
+GET /dashboard/vpnTunnelStats
+GET /dashboard/wireguard
+```
+
+### Alerts
+
+```
+GET /dashboard/alertLogs
+GET /dashboard/allTabs
+```
+
+---
+
+## Insight
+
+```
+GET /insight/rogueaps
+GET /insight/clients
+GET /insight/ddns
+GET /insight/pastConnection
+GET /insight/portForwarding
+GET /insight/routing/gateway
+GET /insight/routing/switch
+GET /insight/switch/detail
+GET /insight/switch/port/counters
+GET /insight/switch/port/overview
+GET /insight/switch/port/poe
+```
+
+---
+
+## Statistics
+
+```
+GET /stat/switches/{id}
+GET /stat/wanSpeeds
+GET /stat/olts/{id}/ddm/info
+```
+
+---
+
+## RF Planning
+
+```
+GET /rfPlanning
+PUT /rfPlanning
+PUT /rfPlanning/excludeAps
+GET /rfPlanning/result
+POST /cmd/rfPlanning
+POST /cmd/rfPlanning/cancel
+```
+
+---
+
+## Speed Test
+
+```
+GET /cmd/speedTestPure
+GET /cmd/getSpeedTestResult
+```
+
+---
+
+## Anomaly Detection
+
+```
+GET /anomaly/setting/
+PATCH /anomaly/setting
+GET /anomaly/setting/modify
+PATCH /anomaly/setting/modify
+```
+
+---
+
+## Experience Index
+
+```
+GET /experienceIndex
+```
+
+---
+
+## Controller System (Global, no site ID)
+
+These use `/{controllerId}/api/v2/` (no site in path).
+
+### Controller Settings
+
+```
+GET /api/v2/controller/setting
+PATCH /api/v2/controller/setting
+```
+
+### Maintenance / Backup
+
+```
+POST /api/v2/maintenance/backup/prepareBackup
+GET /api/v2/maintenance/backup/result
+GET /api/v2/maintenance/backup/cancel
+GET /api/v2/maintenance/restore/prepareRestore
+GET /api/v2/maintenance/controllerStatus
+GET /api/v2/maintenance/uiInterface
+```
+
+### Auto Backup
+
+```
+GET /api/v2/autoBackup/autoBackupTask
+PUT /api/v2/autoBackup/autoBackupTask
+GET /api/v2/autoBackup/autoBackupFile
+DELETE /api/v2/autoBackup/autoBackupFile
+GET /api/v2/autoBackup/gridAutoBackupFiles
+GET /api/v2/autoBackup/restore
+```
+
+### Firmware
+
+```
+GET /api/v2/maintenance/hardware/checkFirmware
+GET /api/v2/maintenance/hardware/upgradeStatus
+GET /api/v2/cmd/upgradeFirmware
+```
+
+### Users
+
+```
+GET /api/v2/users
+GET /api/v2/users/current
+POST /api/v2/users/
+POST /api/v2/cmd/users/
+```
+
+### Cloud
+
+```
+GET /api/v2/cloud/status
+GET /api/v2/cloud/remote/bind/status
+POST /api/v2/cloud/remote/bind/status
+GET /api/v2/cmd/cloud/bind
+GET /api/v2/cmd/cloud/unbind
+```
+
+### System
+
+```
+POST /api/v2/cmd/reboot
+GET /api/v2/current/user-detail
+GET /api/v2/current/view
+GET /api/v2/role/current
+GET /api/v2/workspace
+GET /api/v2/scenarios
+```
+
+---
+
 ## Error Codes
 
 | Code | Meaning | Solution |
 |------|---------|----------|
 | `0` | Success | — |
-| `-1` | Session expired | Re-authenticate (call `connect()` again) |
-| `-1001` | Invalid or incomplete payload | Check all required fields, compare with DevTools |
+| `-1` | Session expired / general error | Re-authenticate (call `connect()` again) |
+| `-1001` | Invalid payload or unsupported on hardware | Check required fields; may mean feature not available on OC220 |
+| `-1600` | Unsupported request path | Wrong endpoint (old vs new API) or not available on this controller |
 | `-30109` | Invalid username or password | Check credentials |
+| `-39000` | Device not found | Wait for discovery, retry adoption |
+| `-39304` | SSID name already exists | Check `enable` field in SSID overrides (must be `false`) |
+| `-39701` | Port not found | Use port number in URL, not port ID string |
 | HTML response | Not authenticated | Complete the 3-step auth flow first |
 | `ETIMEDOUT` | Controller unreachable | Check IP, port, and network connectivity |
 | `ECONNREFUSED` | Wrong port or controller down | OC220 uses port 443, software controller may use 8043 |
