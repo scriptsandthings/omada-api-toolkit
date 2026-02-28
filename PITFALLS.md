@@ -2,6 +2,8 @@
 
 Hard-won lessons from reverse-engineering the Omada Controller Web API v2. Each one cost us hours — so you don't have to.
 
+> **See also:** [API-REFERENCE.md](API-REFERENCE.md) (v2 endpoints) | [CHANGELOG.md](CHANGELOG.md) (version history)
+
 ## 1. `protocols: []` Does Not Mean "All Protocols"
 
 You might assume an empty array means "match everything". It doesn't — the behavior is undefined and varies by controller version. **Always specify protocols explicitly:**
@@ -361,3 +363,162 @@ await omada.apiCall('PUT', `/eaps/${mac}/config/wlans`, {
   ssidOverrides: overrides,
 });
 ```
+
+## 21. Switch Rename: `PATCH /switches/{mac}`, NOT `/devices/{mac}`
+
+To rename a switch, you must use the switch-specific endpoint:
+
+```javascript
+// BAD — returns -1600 Unsupported request path
+await omada.apiCall('PATCH', `/devices/${mac}`, { name: 'Core-SG3428' });
+
+// GOOD — works for switches
+await omada.apiCall('PATCH', `/switches/${mac}`, { name: 'Core-SG3428' });
+```
+
+The generic `/devices/{mac}` endpoint only works for **reading** device info, not modifying. Each device type has its own endpoint: `/switches/{mac}`, `/eaps/{mac}`, `/gateways`.
+
+## 22. WIDS/WIPS/URL Filtering: Endpoints Exist but Return -1001 on OC220
+
+The JS bundles reference wireless IDS (`/setting/firewall/wids`), wireless IPS (`/setting/firewall/wips`), and URL filtering (`/setting/firewall/urlfilterings`). These endpoints **exist in the API** but return error `-1001` on OC220 hardware — the features are not supported.
+
+```javascript
+// Returns { errorCode: -1001 } on OC220
+await omada.apiCall('GET', '/setting/firewall/wids');
+await omada.apiCall('GET', '/setting/firewall/wips');
+await omada.apiCall('GET', '/setting/firewall/urlfilterings');
+```
+
+These may work on software controllers or newer hardware. Don't assume `-1001` means "wrong endpoint" — it can also mean "unsupported on this hardware."
+
+## 23. Clients Endpoint Requires `filters.active=true`
+
+The clients endpoint returns an error without a filter parameter:
+
+```javascript
+// BAD — returns errorCode -1
+await omada.apiCall('GET', '/clients?currentPage=1&currentPageSize=100');
+
+// GOOD — filter by active clients
+await omada.apiCall('GET', '/clients?filters.active=true&currentPage=1&currentPageSize=100');
+```
+
+## 24. `proto` Field Lives Inside `lanNetworkIpv6Config`, Required for PATCH on Interface Networks
+
+When PATCHing a network with `purpose: 'Interface'` (L3 VLAN), the `proto` field is required — but it's **not** at the top level. It's nested inside `lanNetworkIpv6Config`:
+
+```javascript
+// BAD — "proto must not be null"
+await omada.apiCall('PATCH', `/setting/lan/networks/${id}`, {
+  ...network,
+  proto: 0,
+});
+
+// GOOD — proto lives inside lanNetworkIpv6Config
+await omada.apiCall('PATCH', `/setting/lan/networks/${id}`, {
+  ...network,
+  lanNetworkIpv6Config: { proto: 0 },
+});
+```
+
+## 25. `purpose: 'Interface'` vs `purpose: 'vlan'` — L3 vs L2
+
+Networks have two purpose types that behave very differently:
+
+- **`purpose: 'Interface'`** — Creates an L3 VLAN with gateway + subnet + DHCP. The ER7206 has a **hard limit** (~4 interfaces) — creating more returns "General error" with no specific message.
+- **`purpose: 'vlan'`** — Creates an L2-only switch VLAN tag with no subnet or gateway. No limit. Use this when the router (OPNsense, ER7206) handles DHCP and routing — you just need the VLAN tag on switches.
+
+```javascript
+// L3 VLAN with gateway (limited on ER7206)
+{ purpose: 'Interface', vlanId: 40, subnet: '192.168.40.0', cidr: 24, gatewayIp: '192.168.40.1' }
+
+// L2 VLAN tag only (unlimited)
+{ purpose: 'vlan', vlan: 40 }
+```
+
+**Note:** For L2 VLANs, the field is `.vlan` (not `.vlanId`). The API-REFERENCE.md uses `vlanId` (different controller version).
+
+## 26. GET Single Network Returns -1600 on OC220
+
+The endpoint `GET /setting/lan/networks/{id}` returns `-1600 Unsupported request path` on OC220. Use the list endpoint and filter client-side:
+
+```javascript
+// BAD — returns -1600 on OC220
+await omada.apiCall('GET', `/setting/lan/networks/${networkId}`);
+
+// GOOD — list all and filter
+const networks = await omada.getNetworks();
+const target = networks.result.data.find(n => n.id === networkId);
+```
+
+## 27. IP Groups Returns -1600 on OC220
+
+`GET /setting/firewall/ipGroups` returns `-1600` on OC220 hardware controllers. IP/Port Groups may only be available on the ER7206 gateway or software controllers. If you need IP-based firewall grouping, defer to your gateway's native tools (e.g., OPNsense aliases).
+
+## 28. Auto-Created Port Profiles
+
+When you create a VLAN, the controller **automatically creates** a per-VLAN access port profile (e.g., "Servers" profile for VLAN 40). You only need to manually create:
+- **Renamed VLANs** that didn't get a profile with the right name
+- **Trunk/Uplink profiles** with specific tagged VLAN sets
+
+Check `GET /setting/lan/profiles` after creating VLANs — you may already have what you need.
+
+## 29. Response Format: `result` Can Be Array OR `{ data: [...] }`
+
+The API is inconsistent about response format. Some endpoints return:
+
+```javascript
+// Paginated (most list endpoints)
+{ errorCode: 0, result: { totalRows: 5, data: [...] } }
+
+// Direct array (some endpoints like switch ports)
+{ errorCode: 0, result: [...] }
+
+// Direct object (single-item endpoints like controller info)
+{ errorCode: 0, result: { omadacId: '...' } }
+```
+
+Always handle both: `result.data || result` when extracting results.
+
+## 30. Device Status Values
+
+Devices use `statusCategory` and `status` fields, which have different meanings:
+
+| `statusCategory` | Meaning |
+|-------------------|---------|
+| `1` | Online |
+| `0` | Offline/Pending |
+
+| `status` | Meaning |
+|----------|---------|
+| `14` | Online (connected) |
+| `20` | Discovered (ready for adoption) |
+| `0` | Disconnected |
+
+Check `statusCategory === 1` **OR** `status === 14` for online devices. Don't rely on just one field.
+
+## 31. Port Profile Creation Requires Full Field Set
+
+Creating a port profile with a minimal payload (just `name` + `nativeNetworkId`) fails with "must not be null" for 5+ fields. You must include the full set:
+
+```javascript
+// BAD — "must not be null" x5
+{ name: 'My Profile', nativeNetworkId: '...' }
+
+// GOOD — all required fields
+{
+  name: 'My Profile',
+  nativeNetworkId: '...',
+  tagNetworkIds: [],
+  poe: 1,
+  dot1x: 0,
+  spanningTreeSetting: { spanningTreeEnable: true },
+  duplex: 0,
+  linkSpeed: 0,
+  lldpMedEnable: false,
+  topologyNotifyEnable: false,
+  type: 0
+}
+```
+
+Note: `spanningTreeSetting` is an object (not the flat `spanningTreeEnable` boolean used in some examples).
