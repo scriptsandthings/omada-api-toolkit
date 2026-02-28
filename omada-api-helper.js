@@ -374,6 +374,143 @@ async function setEapChannel(mac, freq2g, freq5g) {
 }
 
 // ============================================================
+// CLIENT HELPERS
+// ============================================================
+
+/** List active clients (filters.active=true required on OC220) */
+async function getClients() {
+  return apiCall('GET', '/clients?filters.active=true&currentPage=1&currentPageSize=100');
+}
+
+/** Block a client by ID */
+async function blockClient(clientId) {
+  return apiCall('POST', `/cmd/clients/${clientId}/block`);
+}
+
+/** Unblock a client by ID */
+async function unblockClient(clientId) {
+  return apiCall('POST', `/cmd/clients/${clientId}/unblock`);
+}
+
+// ============================================================
+// SWITCH HELPERS
+// ============================================================
+
+/** Rename a switch (must use /switches/, NOT /devices/) */
+async function renameSwitch(mac, name) {
+  return apiCall('PATCH', `/switches/${mac}`, { name });
+}
+
+/** Get switch LAG config */
+async function getSwitchLags(mac) {
+  return apiCall('GET', `/switches/${mac}/lags`);
+}
+
+/** Get switch network overview */
+async function getSwitchNetworkOverview(mac) {
+  return apiCall('GET', `/switches/${mac}/networkOverview`);
+}
+
+// ============================================================
+// GATEWAY HELPERS
+// ============================================================
+
+/** Get gateway config */
+async function getGateway() {
+  return apiCall('GET', '/gateways');
+}
+
+/** Update gateway config */
+async function updateGateway(config) {
+  return apiCall('PATCH', '/gateways', config);
+}
+
+// ============================================================
+// SECURITY HELPERS
+// ============================================================
+
+/** Get attack defense settings */
+async function getAttackDefense() {
+  return apiCall('GET', '/setting/firewall/attackdefense');
+}
+
+/** Get IP-MAC bindings */
+async function getIpMacBindings() {
+  return apiCall('GET', '/setting/firewall/imbs?currentPage=1&currentPageSize=100');
+}
+
+/** Get wireless IDS settings (returns -1001 on OC220) */
+async function getWids() {
+  return apiCall('GET', '/setting/firewall/wids');
+}
+
+/** Get wireless IPS settings (returns -1001 on OC220) */
+async function getWips() {
+  return apiCall('GET', '/setting/firewall/wips');
+}
+
+// ============================================================
+// ROGUE AP HELPERS
+// ============================================================
+
+/** Trigger a rogue AP scan */
+async function scanRogueAps() {
+  return apiCall('POST', '/cmd/rogueaps/scan');
+}
+
+/** Get rogue AP scan results */
+async function getRogueAps() {
+  return apiCall('GET', '/insight/rogueaps?currentPage=1&currentPageSize=100');
+}
+
+// ============================================================
+// SNMP HELPERS
+// ============================================================
+
+/** Get SNMP settings */
+async function getSnmp() {
+  return apiCall('GET', '/setting/snmp');
+}
+
+/** Update SNMP settings */
+async function updateSnmp(config) {
+  return apiCall('PUT', '/setting/snmp', config);
+}
+
+// ============================================================
+// NETWORK HELPERS (extended)
+// ============================================================
+
+/** Delete a network/VLAN */
+async function deleteNetwork(networkId) {
+  return apiCall('DELETE', `/setting/lan/networks/${networkId}`);
+}
+
+/** Update a network/VLAN (requires full object — GET first, modify, PATCH) */
+async function updateNetwork(networkId, config) {
+  return apiCall('PATCH', `/setting/lan/networks/${networkId}`, config);
+}
+
+// ============================================================
+// DASHBOARD HELPERS
+// ============================================================
+
+/** Get dashboard stats */
+async function getDashboardStats() {
+  return apiCall('GET', '/dashboard/stats');
+}
+
+/** Get alert logs */
+async function getAlertLogs() {
+  return apiCall('GET', '/dashboard/alertLogs?currentPage=1&currentPageSize=100');
+}
+
+/** Get active clients count */
+async function getActiveClients() {
+  return apiCall('GET', '/dashboard/activeClients');
+}
+
+// ============================================================
 // ROUTING HELPERS
 // ============================================================
 
@@ -392,16 +529,47 @@ async function getStaticRoutes() {
  */
 async function exploreSettings() {
   const endpoints = [
+    // Core
     '/setting/lan/networks',
+    '/setting/lan/profiles',
+    '/setting/wlans',
+    '/devices',
+    '/clients?filters.active=true',
+    '/gateways',
+    // Firewall / Security
     '/setting/firewall/acls?type=gateway',
     '/setting/firewall/acls?type=switch',
     '/setting/firewall/acls?type=eap',
-    '/setting/wlans',
-    '/setting/lan/profiles',
-    '/setting/routing/staticRoutes',
+    '/setting/firewall/attackdefense',
+    '/setting/firewall/imbs',
+    '/setting/firewall/wids',
+    '/setting/firewall/wips',
+    '/setting/firewall/urlfilterings',
+    '/setting/firewall/ipGroups',
+    // Services
     '/setting/service/mdns',
     '/setting/service/igmpProxy',
-    '/devices',
+    '/setting/snmp',
+    '/setting/ntp',
+    // Routing / Transmission
+    '/setting/routing/staticRoutes',
+    '/setting/transmission/staticRoutings',
+    '/setting/transmission/portForwardings',
+    '/setting/transmission/bandwidthControls',
+    // VPN
+    '/setting/vpns',
+    '/setting/sslvpn/server',
+    // Dashboard
+    '/dashboard/stats',
+    '/dashboard/activeClients',
+    // Insight
+    '/insight/rogueaps',
+    // Auth
+    '/setting/dot1x',
+    '/setting/radiusProfiles',
+    '/setting/portals',
+    // QoS
+    '/setting/qos/switch/dot1p-queue-mappings/all',
   ];
 
   console.log('Exploring API endpoints...\n');
@@ -483,13 +651,23 @@ module.exports = {
   CONFIG,
   connect,
   apiCall,
+  // Devices
   getDevices,
   adoptDevice,
+  // Clients
+  getClients,
+  blockClient,
+  unblockClient,
+  // Networks / VLANs
   getNetworks,
   createNetwork,
+  updateNetwork,
+  deleteNetwork,
+  // Firewall / ACLs
   getGatewayAcls,
   createGatewayAcl,
   createSwitchAcl,
+  // WLANs / SSIDs
   getWlanGroups,
   getWlans,        // alias for getWlanGroups
   getSsids,
@@ -497,15 +675,41 @@ module.exports = {
   updateSsid,
   deleteSsid,
   createWlan,
+  // Port Profiles
   getPortProfiles,
   createPortProfile,
+  // Switch Ports
   getSwitchPorts,
   updateSwitchPort,
+  renameSwitch,
+  getSwitchLags,
+  getSwitchNetworkOverview,
+  // Gateway
+  getGateway,
+  updateGateway,
+  // Access Points
   getEap,
   updateEap,
   setEapChannel,
   setEapSsidOverrides,
+  // Security
+  getAttackDefense,
+  getIpMacBindings,
+  getWids,
+  getWips,
+  // Rogue AP
+  scanRogueAps,
+  getRogueAps,
+  // SNMP
+  getSnmp,
+  updateSnmp,
+  // Routing
   getStaticRoutes,
+  // Dashboard
+  getDashboardStats,
+  getAlertLogs,
+  getActiveClients,
+  // Discovery
   exploreSettings,
 };
 
