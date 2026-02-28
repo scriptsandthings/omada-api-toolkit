@@ -77,7 +77,19 @@ console.log(networks.result.data);
 | [`omada-api-helper.js`](omada-api-helper.js) | Zero-dependency Node.js API client with auth flow, cookie jar, and 35+ helper methods |
 | [`API-REFERENCE.md`](API-REFERENCE.md) | Comprehensive endpoint documentation covering 200+ endpoints across 30+ categories — VLANs, ACLs, SSIDs, switches, APs, VPN, QoS, security, dashboard, and more |
 | [`PITFALLS.md`](PITFALLS.md) | 31 common mistakes and undocumented behavior that will save you hours |
+| [`CHANGELOG.md`](CHANGELOG.md) | Version history and release notes |
 | [`examples/`](examples/) | Ready-to-use scripts for common tasks |
+
+### Examples
+
+| Script | What It Does |
+|--------|--------------|
+| [`network-audit.js`](examples/network-audit.js) | Full network overview — VLANs, devices, clients, SSIDs, dashboard stats |
+| [`switch-config.js`](examples/switch-config.js) | Switch management — rename, ports, LAGs, profiles, network overview |
+| [`security-audit.js`](examples/security-audit.js) | Security posture check — attack defense, WIDS/WIPS, rogue APs, SNMP, alerts |
+| [`explore-endpoints.js`](examples/explore-endpoints.js) | Discover which of 33 endpoint categories your controller supports |
+| [`create-ssid.js`](examples/create-ssid.js) | Create an SSID with VLAN assignment and per-AP overrides |
+| [`create-deny-intervlan.js`](examples/create-deny-intervlan.js) | Create deny-all inter-VLAN firewall rules for network isolation |
 
 ## Common Operations
 
@@ -236,9 +248,9 @@ The API is not fully documented by TP-Link. The best way to find new endpoints:
 ## Tested Hardware
 
 - OC220 Hardware Controller (firmware 6.1.0.19)
-- ER707-M2 Router/Firewall
-- SG3428XMPP / SG2210XMP-M2 / TL-SG2210P Managed Switches
-- EAP650 / EAP650-Outdoor Access Points
+- ER707-M2 / ER7206 Gateways
+- SG3428XMPP / SG2210XMP-M2 / TL-SG2210P / TL-SG3428 / TL-SG2210P / TL-SG2008 Managed Switches
+- EAP650 / EAP650-Outdoor / EAP670 / EAP660 HD Access Points
 
 The API structure should be similar across Omada Controller versions 5.x and 6.x, but field names may vary between versions. Software controller (Windows/Linux) may use a different default port (8043 instead of 443). Not yet verified — PRs welcome!
 
